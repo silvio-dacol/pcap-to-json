@@ -1,13 +1,13 @@
 [package]
-name = "pcaptojson"
+name = "pcap-to-json"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pcap = "1"                                          # pcap to read packets (offline or live).
-pnet_packet = "0.34"                                # pnet_packet to decode Ethernet/IP/TCP/UDP.
-serde = { version = "1", features = ["derive"] }    # serde to emit JSON.
-serde_json = "1"                                    # serde_json to emit JSON.
-clap = { version = "4", features = ["derive"] }     # clap for a clean CLI.
-anyhow = "1"                                        # anyhow for ergonomic error handling.
-chrono = { version = "0.4", features = ["clock"] }  # chrono to convert timeval to RFC3339.
+pcap = "1"                                          # Read PCAP files
+pnet_packet = "0.34"                                # Parse network packets
+serde = { version = "1", features = ["derive"] }    # JSON serialization
+serde_json = "1"                                    # JSON output
+clap = { version = "4", features = ["derive"] }     # Command line interface
+anyhow = "1"                                        # Error handling
+chrono = { version = "0.4", features = ["clock"] }  # Timestamp conversion

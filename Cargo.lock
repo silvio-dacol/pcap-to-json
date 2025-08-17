@@ -331,7 +331,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pcaptojson"
+name = "pcap-to-json"
 version = "0.1.0"
 dependencies = [
  "anyhow",
