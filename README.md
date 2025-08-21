@@ -1,6 +1,6 @@
 # pcap-to-json
 
-A tool to convert pcap and pcapng files to JSON.
+A tool to convert pcap and pcapng files to JSON format.
 
 ## Installation Requirements
 
@@ -23,12 +23,8 @@ cargo build
 
 Navigate to the directory where the executable is (i.e. target/debug) and run the executable as:
 
-1. Print the packets in the CLI
-```bash
-pcap-to-json input.pcap
+```
+pcap-to-json input.pcap --out output.jsonl
 ```
 
-2. Print the packets to a file called "output.json"
-```
-pcap-to-json input.pcap --out output.json
-```
+to print the packets to a file called "output.jsonl"

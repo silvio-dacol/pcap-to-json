@@ -2,3 +2,5 @@
 **/*.rs.bk
 *.pcap
 *commented.rs
+*.jsonl
+*.json

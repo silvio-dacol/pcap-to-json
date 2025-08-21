@@ -18,8 +18,8 @@ fn hex_string(data: &[u8]) -> String {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let in_path = env::args().nth(1).expect("Usage: pcap_to_jsonl <infile.pcap> <outfile.jsonl>");
-    let out_path = env::args().nth(2).expect("Usage: pcap_to_jsonl <infile.pcap> <outfile.jsonl>");
+    let in_path = env::args().nth(1).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>");
+    let out_path = env::args().nth(2).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>");
 
     // Open the PCAP file
     let mut cap = Capture::from_file(&in_path)?;
