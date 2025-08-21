@@ -3,6 +3,7 @@ use serde::Serialize;
 use pcap::Capture;
 use chrono::{DateTime, Utc};
 
+// Define the structure of the JSON record to be written
 #[derive(Serialize)]
 struct PacketRecord {
     index: usize,
@@ -17,7 +18,8 @@ fn utc_time(sec: i64, usec: i64) -> String {
     dt.format("%H:%M:%S.%6f").to_string()
 }
 
-fn hex_string(data: &[u8]) -> String {
+// Function to convert the packet data to a hex string
+fn payload_string(data: &[u8]) -> String {
     data.iter()
         .map(|b| format!("{:02x}", b))
         .collect::<Vec<_>>()
@@ -44,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             index: index,
             timestamp_sec: utc_time(packet.header.ts.tv_sec as i64, packet.header.ts.tv_usec as i64),
             packet_len: packet.header.len,
-            raw_hex: hex_string(packet.data),
+            raw_hex: payload_string(packet.data),
         };
 
         // Write the JSON record to the output file
