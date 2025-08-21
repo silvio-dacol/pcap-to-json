@@ -13,8 +13,8 @@ struct PacketRecord {
 
 // Function to parse the timestamp into a UTC string with format %H:%M:%S.%f
 fn utc_time(sec: i64, usec: i64) -> String {
-    let dt = DateTime::<Utc>::from_timestamp(sec, usec as u32).unwrap();
-    dt.format("%Y-%m-%d %H:%M:%S.%f").to_string()
+    let dt = DateTime::<Utc>::from_timestamp(sec, (usec*1000) as u32).unwrap();
+    dt.format("%H:%M:%S.%6f").to_string()
 }
 
 fn hex_string(data: &[u8]) -> String {
