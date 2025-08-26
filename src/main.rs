@@ -48,7 +48,23 @@ struct DoipInfo {
     payload_length: u32,
     payload_type_description: String,
     payload_hex: String,
-    payload_analysis: Option<String>,
+    source_address: Option<u16>,
+    target_address: Option<u16>,
+    uds_info: Option<UdsInfo>,
+}
+
+#[derive(Serialize)]
+struct UdsInfo {
+    service_id: u8,
+    service_description: String,
+    is_response: bool,
+    sub_function: Option<u8>,
+    sub_function_description: Option<String>,
+    data_identifier: Option<u16>,
+    routine_identifier: Option<u16>,
+    negative_response_code: Option<u8>,
+    nrc_description: Option<String>,
+    data_hex: String,
 }
 
 // Function to parse the timestamp into a UTC string with format %Y-%m-%d
@@ -134,59 +150,157 @@ fn parse_transport(packet: &SlicedPacket) -> Option<TransportInfo> {
     })
 }
 
-// Analyze DoIP payload content based on message type
-fn analyze_doip_payload(payload_type: u16, payload: &[u8]) -> Option<String> {
-    match payload_type {
-        0x8001 => {
-            // Diagnostic message - analyze UDS content
-            if payload.len() >= 2 {
-                let source_address = u16::from_be_bytes([payload[0], payload[1]]);
-                let target_address = if payload.len() >= 4 {
-                    u16::from_be_bytes([payload[2], payload[3]])
-                } else {
-                    0
-                };
-                let uds_data = if payload.len() > 4 { &payload[4..] } else { &[] };
-                Some(format!("UDS Diagnostic message: Source=0x{:04X}, Target=0x{:04X}, UDS data: {} bytes",
-                    source_address, target_address, uds_data.len()))
-            } else {
-                Some("Diagnostic message: Invalid payload length".to_string())
-            }
-        },
-        0x0004 => {
-            // Vehicle announcement/identification response
-            if payload.len() >= 17 {
-                let vin = String::from_utf8_lossy(&payload[0..17]);
-                Some(format!("Vehicle identification: VIN={}", vin))
-            } else {
-                Some("Vehicle identification: Incomplete VIN".to_string())
-            }
-        },
-        0x0005 => {
-            // Routing activation request
-            if payload.len() >= 7 {
-                let source_address = u16::from_be_bytes([payload[0], payload[1]]);
-                let activation_type = payload[2];
-                Some(format!("Routing activation request: Source=0x{:04X}, Type=0x{:02X}",
-                    source_address, activation_type))
-            } else {
-                Some("Routing activation request: Invalid payload".to_string())
-            }
-        },
-        0x0006 => {
-            // Routing activation response
-            if payload.len() >= 9 {
-                let tester_address = u16::from_be_bytes([payload[0], payload[1]]);
-                let entity_address = u16::from_be_bytes([payload[2], payload[3]]);
-                let response_code = payload[4];
-                Some(format!("Routing activation response: Tester=0x{:04X}, Entity=0x{:04X}, Code=0x{:02X}",
-                    tester_address, entity_address, response_code))
-            } else {
-                Some("Routing activation response: Invalid payload".to_string())
-            }
-        },
-        _ => None,
+// Get UDS service description
+fn get_uds_service_description(service_id: u8, is_response: bool) -> String {
+    if is_response {
+        match service_id {
+            0x50 => "DiagnosticSessionControl Positive Response".to_string(),
+            0x51 => "ECUReset Positive Response".to_string(),
+            0x62 => "ReadDataByIdentifier Positive Response".to_string(),
+            0x6E => "WriteDataByIdentifier Positive Response".to_string(),
+            0x71 => "RoutineControl Positive Response".to_string(),
+            0x74 => "RequestDownload Positive Response".to_string(),
+            0x76 => "TransferData Positive Response".to_string(),
+            0x77 => "RequestTransferExit Positive Response".to_string(),
+            0x7F => "Negative Response Code (NRC)".to_string(),
+            _ => format!("Unknown UDS Response (0x{:02X})", service_id),
+        }
+    } else {
+        match service_id {
+            0x10 => "DiagnosticSessionControl".to_string(),
+            0x11 => "ECUReset".to_string(),
+            0x22 => "ReadDataByIdentifier".to_string(),
+            0x2E => "WriteDataByIdentifier".to_string(),
+            0x31 => "RoutineControl".to_string(),
+            0x34 => "RequestDownload".to_string(),
+            0x36 => "TransferData".to_string(),
+            0x37 => "RequestTransferExit".to_string(),
+            0x3E => "TesterPresent".to_string(),
+            0x85 => "ControlDTCSetting".to_string(),
+            0x19 => "ReadDTCInformation".to_string(),
+            0x14 => "ClearDiagnosticInformation".to_string(),
+            0x27 => "SecurityAccess".to_string(),
+            0x28 => "CommunicationControl".to_string(),
+            0x29 => "Authentication".to_string(),
+            0x2A => "ReadDataByPeriodicIdentifier".to_string(),
+            0x2C => "DynamicallyDefineDataIdentifier".to_string(),
+            0x2F => "InputOutputControlByIdentifier".to_string(),
+            0x83 => "AccessTimingParameter".to_string(),
+            0x84 => "SecuredDataTransmission".to_string(),
+            0x86 => "ResponseOnEvent".to_string(),
+            0x87 => "LinkControl".to_string(),
+            _ => format!("Unknown UDS Service (0x{:02X})", service_id),
+        }
     }
+}
+
+// Get NRC (Negative Response Code) description
+fn get_nrc_description(nrc: u8) -> String {
+    match nrc {
+        0x10 => "generalReject".to_string(),
+        0x11 => "serviceNotSupported".to_string(),
+        0x12 => "subFunctionNotSupported".to_string(),
+        0x13 => "incorrectMessageLengthOrInvalidFormat".to_string(),
+        0x21 => "busyRepeatRequest".to_string(),
+        0x22 => "conditionsNotCorrect".to_string(),
+        0x24 => "requestSequenceError".to_string(),
+        0x25 => "noResponseFromSubnetComponent".to_string(),
+        0x26 => "failurePreventsExecutionOfRequestedAction".to_string(),
+        0x31 => "requestOutOfRange".to_string(),
+        0x33 => "securityAccessDenied".to_string(),
+        0x35 => "invalidKey".to_string(),
+        0x36 => "exceedNumberOfAttempts".to_string(),
+        0x37 => "requiredTimeDelayNotExpired".to_string(),
+        0x70 => "uploadDownloadNotAccepted".to_string(),
+        0x71 => "transferDataSuspended".to_string(),
+        0x72 => "generalProgrammingFailure".to_string(),
+        0x73 => "wrongBlockSequenceCounter".to_string(),
+        0x78 => "requestCorrectlyReceived-ResponsePending".to_string(),
+        0x7E => "subFunctionNotSupportedInActiveSession".to_string(),
+        0x7F => "serviceNotSupportedInActiveSession".to_string(),
+        _ => format!("Unknown NRC (0x{:02X})", nrc),
+    }
+}
+
+// Get routine control sub-function description
+fn get_routine_control_subfunction_description(sub_func: u8) -> String {
+    match sub_func {
+        0x01 => "startRoutine".to_string(),
+        0x02 => "stopRoutine".to_string(),
+        0x03 => "requestRoutineResults".to_string(),
+        _ => format!("Unknown sub-function (0x{:02X})", sub_func),
+    }
+}
+
+// Parse UDS message from DoIP diagnostic payload
+fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
+    if payload.len() < 5 {
+        return None; // Need at least source addr (2) + target addr (2) + service (1)
+    }
+
+    // Skip source and target addresses (first 4 bytes)
+    let uds_data = &payload[4..];
+    if uds_data.is_empty() {
+        return None;
+    }
+
+    let service_id = uds_data[0];
+    let is_response = service_id >= 0x40 && service_id != 0x7F;
+    let mut negative_response_code = None;
+    let mut nrc_description = None;
+    let mut sub_function = None;
+    let mut sub_function_description = None;
+    let mut data_identifier = None;
+    let mut routine_identifier = None;
+
+    // Handle negative response
+    if service_id == 0x7F && uds_data.len() >= 3 {
+        let _failed_service = uds_data[1]; // Service that failed
+        let nrc = uds_data[2];
+        negative_response_code = Some(nrc);
+        nrc_description = Some(get_nrc_description(nrc));
+    }
+    // Handle specific services
+    else {
+        match service_id {
+            // ReadDataByIdentifier request/response
+            0x22 | 0x62 => {
+                if uds_data.len() >= 3 {
+                    data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
+                }
+            },
+            // RoutineControl request/response
+            0x31 | 0x71 => {
+                if uds_data.len() >= 2 {
+                    sub_function = Some(uds_data[1]);
+                    sub_function_description = Some(get_routine_control_subfunction_description(uds_data[1]));
+                }
+                if uds_data.len() >= 4 {
+                    routine_identifier = Some(u16::from_be_bytes([uds_data[2], uds_data[3]]));
+                }
+            },
+            // WriteDataByIdentifier request/response
+            0x2E | 0x6E => {
+                if uds_data.len() >= 3 {
+                    data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
+                }
+            },
+            _ => {}
+        }
+    }
+
+    Some(UdsInfo {
+        service_id,
+        service_description: get_uds_service_description(service_id, is_response),
+        is_response,
+        sub_function,
+        sub_function_description,
+        data_identifier,
+        routine_identifier,
+        negative_response_code,
+        nrc_description,
+        data_hex: hex::encode(uds_data),
+    })
 }
 
 // Get description for DoIP payload type based on ISO-13400 standard
@@ -240,6 +354,23 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         &[]
                     };
 
+                    // Extract source and target addresses for diagnostic messages
+                    let (source_address, target_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                        (
+                            Some(u16::from_be_bytes([doip_payload[0], doip_payload[1]])),
+                            Some(u16::from_be_bytes([doip_payload[2], doip_payload[3]])),
+                        )
+                    } else {
+                        (None, None)
+                    };
+
+                    // Parse UDS information for diagnostic messages
+                    let uds_info = if payload_type == 0x8001 {
+                        parse_uds_message(doip_payload)
+                    } else {
+                        None
+                    };
+
                     Some(DoipInfo {
                         version,
                         inverse_version,
@@ -247,7 +378,9 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         payload_length,
                         payload_type_description: get_doip_payload_type_description(payload_type),
                         payload_hex: hex::encode(doip_payload),
-                        payload_analysis: analyze_doip_payload(payload_type, doip_payload),
+                        source_address,
+                        target_address,
+                        uds_info,
                     })
                 } else {
                     None
@@ -268,6 +401,23 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         &[]
                     };
 
+                    // Extract source and target addresses for diagnostic messages
+                    let (source_address, target_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                        (
+                            Some(u16::from_be_bytes([doip_payload[0], doip_payload[1]])),
+                            Some(u16::from_be_bytes([doip_payload[2], doip_payload[3]])),
+                        )
+                    } else {
+                        (None, None)
+                    };
+
+                    // Parse UDS information for diagnostic messages
+                    let uds_info = if payload_type == 0x8001 {
+                        parse_uds_message(doip_payload)
+                    } else {
+                        None
+                    };
+
                     Some(DoipInfo {
                         version,
                         inverse_version,
@@ -275,7 +425,9 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         payload_length,
                         payload_type_description: get_doip_payload_type_description(payload_type),
                         payload_hex: hex::encode(doip_payload),
-                        payload_analysis: analyze_doip_payload(payload_type, doip_payload),
+                        source_address,
+                        target_address,
+                        uds_info,
                     })
                 } else {
                     None
