@@ -150,6 +150,37 @@ fn parse_transport(packet: &SlicedPacket) -> Option<TransportInfo> {
     })
 }
 
+// Get description for DoIP payload type based on ISO-13400 standard
+fn get_doip_payload_type_description(payload_type: u16) -> String {
+
+    match payload_type {
+        // Generic DoIP header negative acknowledge
+        0x0000 => "Generic DoIP header negative acknowledge".to_string(),
+        // Vehicle identification
+        0x0001 => "Vehicle identification request message".to_string(),
+        0x0002 => "Vehicle identification request message with EID".to_string(),
+        0x0003 => "Vehicle identification request message with VIN".to_string(),
+        0x0004 => "Vehicle announcement message/vehicle identification response message".to_string(),
+        // Routing activation
+        0x0005 => "Routing activation request".to_string(),
+        0x0006 => "Routing activation response".to_string(),
+        // Alive check
+        0x0007 => "Alive check request".to_string(),
+        0x0008 => "Alive check response".to_string(),
+        // DoIP entity status
+        0x4001 => "DoIP entity status request".to_string(),
+        0x4002 => "DoIP entity status response".to_string(),
+        // Diagnostic power mode
+        0x4003 => "Diagnostic power mode information request".to_string(),
+        0x4004 => "Diagnostic power mode information response".to_string(),
+        // Diagnostic messages
+        0x8001 => "Diagnostic message".to_string(),
+        0x8002 => "Diagnostic message positive acknowledgement".to_string(),
+        0x8003 => "Diagnostic message negative acknowledgement".to_string(),
+        _ => format!("Unknown payload type (0x{:04X})", payload_type),
+    }
+}
+
 // Get UDS service description
 fn get_uds_service_description(service_id: u8, is_response: bool) -> String {
     if is_response {
@@ -269,6 +300,21 @@ fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
                     data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
                 }
             },
+
+            // IO Control by Identifier request/response
+            0x2F | 0x6F => {
+                if uds_data.len() >= 3 {
+                    data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
+                }
+            },
+
+            // WriteDataByIdentifier request/response
+            0x2E | 0x6E => {
+                if uds_data.len() >= 3 {
+                    data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
+                }
+            },
+
             // RoutineControl request/response
             0x31 | 0x71 => {
                 if uds_data.len() >= 2 {
@@ -279,12 +325,7 @@ fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
                     routine_identifier = Some(u16::from_be_bytes([uds_data[2], uds_data[3]]));
                 }
             },
-            // WriteDataByIdentifier request/response
-            0x2E | 0x6E => {
-                if uds_data.len() >= 3 {
-                    data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
-                }
-            },
+
             _ => {}
         }
     }
@@ -301,37 +342,6 @@ fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
         nrc_description,
         data_hex: hex::encode(uds_data),
     })
-}
-
-// Get description for DoIP payload type based on ISO-13400 standard
-fn get_doip_payload_type_description(payload_type: u16) -> String {
-
-    match payload_type {
-        // Generic DoIP header negative acknowledge
-        0x0000 => "Generic DoIP header negative acknowledge".to_string(),
-        // Vehicle identification
-        0x0001 => "Vehicle identification request message".to_string(),
-        0x0002 => "Vehicle identification request message with EID".to_string(),
-        0x0003 => "Vehicle identification request message with VIN".to_string(),
-        0x0004 => "Vehicle announcement message/vehicle identification response message".to_string(),
-        // Routing activation
-        0x0005 => "Routing activation request".to_string(),
-        0x0006 => "Routing activation response".to_string(),
-        // Alive check
-        0x0007 => "Alive check request".to_string(),
-        0x0008 => "Alive check response".to_string(),
-        // DoIP entity status
-        0x4001 => "DoIP entity status request".to_string(),
-        0x4002 => "DoIP entity status response".to_string(),
-        // Diagnostic power mode
-        0x4003 => "Diagnostic power mode information request".to_string(),
-        0x4004 => "Diagnostic power mode information response".to_string(),
-        // Diagnostic messages
-        0x8001 => "Diagnostic message".to_string(),
-        0x8002 => "Diagnostic message positive acknowledgement".to_string(),
-        0x8003 => "Diagnostic message negative acknowledgement".to_string(),
-        _ => format!("Unknown payload type (0x{:04X})", payload_type),
-    }
 }
 
 // Parse DoIP layer information
