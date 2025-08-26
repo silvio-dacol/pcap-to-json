@@ -9,4 +9,4 @@ serde = { version = "1", features = ["derive"] }    # JSON serialization
 serde_json = "1"                                    # JSON output
 chrono = "0.4"                                      # Date and time handling
 etherparse = "0.19.0"                               # Network layers (Ethernet, IP, TCP, UDP) parsing
-automotive_diag = "0.1.22"                          # Automotive DoIP parsing
+hex = "0.4"                                         # Hex encoding/decoding
