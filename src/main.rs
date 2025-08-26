@@ -48,8 +48,8 @@ struct DoipInfo {
     payload_length: u32,
     payload_type_description: String,
     payload_hex: String,
-    source_address: Option<u16>,
-    target_address: Option<u16>,
+    source_address: Option<String>,
+    destination_address: Option<String>,
     uds_info: Option<UdsInfo>,
 }
 
@@ -365,10 +365,12 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                     };
 
                     // Extract source and target addresses for diagnostic messages
-                    let (source_address, target_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                    let (source_address, destination_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                        let src_addr = u16::from_be_bytes([doip_payload[0], doip_payload[1]]);
+                        let dst_addr = u16::from_be_bytes([doip_payload[2], doip_payload[3]]);
                         (
-                            Some(u16::from_be_bytes([doip_payload[0], doip_payload[1]])),
-                            Some(u16::from_be_bytes([doip_payload[2], doip_payload[3]])),
+                            Some(format!("0x{:04x}", src_addr)),
+                            Some(format!("0x{:04x}", dst_addr)),
                         )
                     } else {
                         (None, None)
@@ -389,7 +391,7 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         payload_type_description: get_doip_payload_type_description(payload_type),
                         payload_hex: hex::encode(doip_payload),
                         source_address,
-                        target_address,
+                        destination_address,
                         uds_info,
                     })
                 } else {
@@ -412,10 +414,12 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                     };
 
                     // Extract source and target addresses for diagnostic messages
-                    let (source_address, target_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                    let (source_address, destination_address) = if payload_type == 0x8001 && doip_payload.len() >= 4 {
+                        let src_addr = u16::from_be_bytes([doip_payload[0], doip_payload[1]]);
+                        let dst_addr = u16::from_be_bytes([doip_payload[2], doip_payload[3]]);
                         (
-                            Some(u16::from_be_bytes([doip_payload[0], doip_payload[1]])),
-                            Some(u16::from_be_bytes([doip_payload[2], doip_payload[3]])),
+                            Some(format!("0x{:04x}", src_addr)),
+                            Some(format!("0x{:04x}", dst_addr)),
                         )
                     } else {
                         (None, None)
@@ -436,7 +440,7 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         payload_type_description: get_doip_payload_type_description(payload_type),
                         payload_hex: hex::encode(doip_payload),
                         source_address,
-                        target_address,
+                        destination_address,
                         uds_info,
                     })
                 } else {
