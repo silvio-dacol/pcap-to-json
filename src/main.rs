@@ -47,11 +47,7 @@ struct DoipInfo {
     payload_type: u16,
     payload_length: u32,
     payload_type_description: String,
-    raw_hex: String,
     payload_hex: String,
-    header_valid: bool,
-    version_valid: bool,
-    payload_length_matches: bool,
     payload_analysis: Option<String>,
 }
 
@@ -244,23 +240,13 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         &[]
                     };
 
-                    // Validate DoIP header
-                    let version_valid = version == 0x02 && inverse_version == 0xFD;
-                    let header_valid = version_valid;
-                    let actual_payload_length = doip_payload.len() as u32;
-                    let payload_length_matches = payload_length == actual_payload_length;
-
                     Some(DoipInfo {
                         version,
                         inverse_version,
                         payload_type,
                         payload_length,
                         payload_type_description: get_doip_payload_type_description(payload_type),
-                        raw_hex: hex::encode(payload),
                         payload_hex: hex::encode(doip_payload),
-                        header_valid,
-                        version_valid,
-                        payload_length_matches,
                         payload_analysis: analyze_doip_payload(payload_type, doip_payload),
                     })
                 } else {
@@ -282,23 +268,13 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
                         &[]
                     };
 
-                    // Validate DoIP header
-                    let version_valid = version == 0x02 && inverse_version == 0xFD;
-                    let header_valid = version_valid;
-                    let actual_payload_length = doip_payload.len() as u32;
-                    let payload_length_matches = payload_length == actual_payload_length;
-
                     Some(DoipInfo {
                         version,
                         inverse_version,
                         payload_type,
                         payload_length,
                         payload_type_description: get_doip_payload_type_description(payload_type),
-                        raw_hex: hex::encode(payload),
                         payload_hex: hex::encode(doip_payload),
-                        header_valid,
-                        version_valid,
-                        payload_length_matches,
                         payload_analysis: analyze_doip_payload(payload_type, doip_payload),
                     })
                 } else {
