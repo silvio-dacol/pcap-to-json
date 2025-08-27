@@ -276,7 +276,7 @@ fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
     }
 
     let service_id = uds_data[0];
-    let is_response = service_id >= 0x40 && service_id != 0x7F;
+    let is_response = service_id >= 0x40 || service_id == 0x7F;
     let mut negative_response_code = None;
     let mut nrc_description = None;
     let mut sub_function = None;
@@ -301,7 +301,7 @@ fn parse_uds_message(payload: &[u8]) -> Option<UdsInfo> {
                 }
             },
 
-            // IO Control by Identifier request/response
+            // I/O Control by Identifier request/response
             0x2F | 0x6F => {
                 if uds_data.len() >= 3 {
                     data_identifier = Some(u16::from_be_bytes([uds_data[1], uds_data[2]]));
