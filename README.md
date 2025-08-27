@@ -6,13 +6,13 @@ A tool to convert pcap and pcapng files to JSON format.
 
 0. **Rust and Cargo**: Check to have rust and cargo installed. If not, install from https://rustup.rs/
 
-1. **Npcap Runtime**: Download from https://npcap.com in the Downloads section
+1. **Npcap Runtime**: Download from https://npcap.com in the Downloads section.
 
-   <img src="./docs/npcap_downloads_section.png" alt="npcap_downloads_section" width="500"/>
+   <img src="./docs/npcap_downloads_section.png" alt="npcap_downloads_section" width="800"/>
 
-2. **Npcap Runtime**: Check "Install Npcap in WinPcap API-compatible Mode" in the installer
+2. **Npcap Runtime**: Check "Install Npcap in WinPcap API-compatible Mode" in the installer.
 
-   <img src="./docs/npcap_installation_settings.png" alt="npcap_installation_settings" width="500"/>
+   <img src="./docs/npcap_installation_settings.png" alt="npcap_installation_settings" width="800"/>
 
 3. **Npcap SDK**: Download from https://npcap.com in the Downloads section, extract to `C:\Program Files\Npcap\sdk\`
 
