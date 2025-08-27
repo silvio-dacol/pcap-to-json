@@ -24,10 +24,8 @@ cargo build
 
 ## Usage
 
-Navigate to the directory where the executable is (i.e. target/debug) and run the executable as:
+Use this command to convert a pcap file to jsonl:
 
 ```
 cargo run input.pcap output.jsonl
 ```
-
-to print the packets to a file called "output.jsonl"
