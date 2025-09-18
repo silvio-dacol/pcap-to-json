@@ -1,4 +1,4 @@
-use std::{env, fs::File, io::Write};
+use std::{env, fs::File, io::Write, path::{Path}};
 use serde::Serialize;
 use pcap::Capture;
 use chrono::{DateTime, Utc};
@@ -6,6 +6,20 @@ use etherparse::SlicedPacket;
 use hex;
 mod dtc;
 mod dtc_db;
+
+const INPUT_DIR: &str = "files/input";
+const OUTPUT_DIR: &str = "files/output";
+
+fn resolve_under_dir(dir: &str, p: &str) -> String {
+    let path = Path::new(p);
+    if path.is_absolute() || path.starts_with(dir) {
+        return p.to_string();
+    }
+    Path::new(dir).join(p).to_string_lossy().into_owned()
+}
+
+fn resolve_input(p: &str) -> String { resolve_under_dir(INPUT_DIR, p) }
+fn resolve_output(p: &str) -> String { resolve_under_dir(OUTPUT_DIR, p) }
 
 // Define the structure of the JSON record to be written
 #[derive(Serialize)]
@@ -460,19 +474,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
         Some("--extract-dtcs") => {
-            let in_path = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
-            let out_path = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
+            let in_raw = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
+            let out_raw = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
+            let in_path = resolve_input(&in_raw);
+            let out_path = resolve_output(&out_raw);
             dtc::extract_dtcs_from_log(&in_path, &out_path)
         }
         Some("--extract-dtcs-xlsx") | Some("--extract-dtc-db") => {
-            let in_path = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
-            let out_path = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let in_raw = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let out_raw = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let in_path = resolve_input(&in_raw);
+            let out_path = resolve_input(&out_raw);
             dtc_db::extract_dtcs_from_xlsx(&in_path, &out_path)
         }
         _ => {
             // Default behavior: PCAP to JSONL
-            let in_path = env::args().nth(1).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>\nOr:    cargo run --extract-dtcs <input.log> <output.jsonl>\nOr:    cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let in_raw = env::args().nth(1).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>\nOr:    cargo run --extract-dtcs <input.log> <output.jsonl>\nOr:    cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
             let out_path = env::args().nth(2).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>\nOr:    cargo run --extract-dtcs <input.log> <output.jsonl>\nOr:    cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let in_path = resolve_input(&in_raw);
 
             // Open the PCAP file
             let mut cap = Capture::from_file(&in_path)?;

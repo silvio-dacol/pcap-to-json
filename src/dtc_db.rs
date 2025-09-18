@@ -57,6 +57,7 @@ pub fn extract_dtcs_from_xlsx(
     let range = workbook
         .worksheet_range(&sheet_name)?;
 
+    if let Some(parent) = std::path::Path::new(out_path).parent() { let _ = std::fs::create_dir_all(parent); }
     let mut out = File::create(out_path)?;
 
     for (row_idx, row) in range.rows().enumerate() {
