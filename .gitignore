@@ -1,6 +1,8 @@
 /target
 **/*.rs.bk
 *.pcap
+*.pcapng
 *commented.rs
 *.jsonl
 *.json
+*.log

@@ -4,6 +4,8 @@ use pcap::Capture;
 use chrono::{DateTime, Utc};
 use etherparse::SlicedPacket;
 use hex;
+mod dtc;
+mod dtc_db;
 
 // Define the structure of the JSON record to be written
 #[derive(Serialize)]
@@ -16,6 +18,7 @@ struct PacketRecord {
     tcp: Option<TransportInfo>,
     doip: Option<DoipInfo>,
 }
+
 
 #[derive(Serialize)]
 struct EthernetInfo {
@@ -253,6 +256,7 @@ fn get_nrc_description(nrc: u8) -> String {
     }
 }
 
+
 // Get routine control sub-function description
 fn get_routine_control_subfunction_description(sub_func: u8) -> String {
     match sub_func {
@@ -453,40 +457,56 @@ fn parse_doip(packet: &SlicedPacket) -> Option<DoipInfo> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let in_path = env::args().nth(1).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>");
-    let out_path = env::args().nth(2).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>");
+    let mut args = env::args().skip(1);
+    match args.next().as_deref() {
+        Some("--extract-dtcs") => {
+            let in_path = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
+            let out_path = args.next().expect("Usage: cargo run --extract-dtcs <input.log> <output.jsonl>");
+            dtc::extract_dtcs_from_log(&in_path, &out_path)
+        }
+        Some("--extract-dtcs-xlsx") | Some("--extract-dtc-db") => {
+            let in_path = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let out_path = args.next().expect("Usage: cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            dtc_db::extract_dtcs_from_xlsx(&in_path, &out_path)
+        }
+        _ => {
+            // Default behavior: PCAP to JSONL
+            let in_path = env::args().nth(1).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>\nOr:    cargo run --extract-dtcs <input.log> <output.jsonl>\nOr:    cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
+            let out_path = env::args().nth(2).expect("Usage: cargo run <infile.pcap> <outfile.jsonl>\nOr:    cargo run --extract-dtcs <input.log> <output.jsonl>\nOr:    cargo run --extract-dtcs-xlsx <input.xlsx> <output.jsonl>");
 
-    // Open the PCAP file
-    let mut cap = Capture::from_file(&in_path)?;
-    let mut out = File::create(out_path)?;
+            // Open the PCAP file
+            let mut cap = Capture::from_file(&in_path)?;
+            let mut out = File::create(out_path)?;
 
-    // Initialize index that displays the packet number
-    let mut index = 0;
+            // Initialize index that displays the packet number
+            let mut index = 0;
 
-    // Process each packet
-    while let Ok(packet) = cap.next_packet() {
-        // Increment the index every processed packet
-        index = index + 1;
+            // Process each packet
+            while let Ok(packet) = cap.next_packet() {
+                // Increment the index every processed packet
+                index = index + 1;
 
-        // Parse the packet using etherparse
-        let sliced_packet = match SlicedPacket::from_ethernet(packet.data) {
-            Ok(packet) => packet,
-            Err(_) => continue, // Skip packets that can't be parsed
-        };
+                // Parse the packet using etherparse
+                let sliced_packet = match SlicedPacket::from_ethernet(packet.data) {
+                    Ok(packet) => packet,
+                    Err(_) => continue, // Skip packets that can't be parsed
+                };
 
-        let record = PacketRecord {
-            index: index,
-            date: utc_date(packet.header.ts.tv_sec as i64, packet.header.ts.tv_usec as i64),
-            timestamp: utc_time(packet.header.ts.tv_sec as i64, packet.header.ts.tv_usec as i64),
-            ethernet: parse_ethernet(&sliced_packet),
-            ip: parse_ip(&sliced_packet),
-            tcp: parse_transport(&sliced_packet),
-            doip: parse_doip(&sliced_packet),
-        };
+                let record = PacketRecord {
+                    index: index,
+                    date: utc_date(packet.header.ts.tv_sec as i64, packet.header.ts.tv_usec as i64),
+                    timestamp: utc_time(packet.header.ts.tv_sec as i64, packet.header.ts.tv_usec as i64),
+                    ethernet: parse_ethernet(&sliced_packet),
+                    ip: parse_ip(&sliced_packet),
+                    tcp: parse_transport(&sliced_packet),
+                    doip: parse_doip(&sliced_packet),
+                };
 
-        // Write the JSON record to the output file
-        writeln!(out, "{}", serde_json::to_string(&record)?)?;
+                // Write the JSON record to the output file
+                writeln!(out, "{}", serde_json::to_string(&record)?)?;
+            }
+
+            Ok(())
+        }
     }
-
-    Ok(())
 }
