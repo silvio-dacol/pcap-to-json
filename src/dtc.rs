@@ -18,6 +18,19 @@ struct DtcRecord {
     status: u32,
 }
 
+#[derive(Serialize)]
+struct MetaInner {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    VIN: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    time: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MetaRecord {
+    _meta: MetaInner,
+}
+
 // Convert a 6-hex-char raw DTC (e.g., "1ABCD2") to display code (e.g., "C1ABCD").
 // Mirrors the provided Python implementation and the original Excel formula.
 fn dtc_hex_to_display<S: AsRef<str>>(a7: S) -> Result<String, String> {
@@ -62,14 +75,71 @@ fn dtc_hex_to_display<S: AsRef<str>>(a7: S) -> Result<String, String> {
     Ok(format!("{}{}{}", system, second_char, remainder))
 }
 
+fn extract_meta_from_log(in_path: &str) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error>> {
+    let infile = File::open(in_path)?;
+    let reader = BufReader::new(infile);
+
+    let mut vin: Option<String> = None;
+    let mut start_time: Option<String> = None;
+
+    for line_res in reader.lines() {
+        let line = match line_res {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        if vin.is_none() {
+            if let Some(pos) = line.find("Set vehicle VIN:") {
+                let v = line[(pos + "Set vehicle VIN:".len())..].trim();
+                if !v.is_empty() {
+                    vin = Some(v.to_string());
+                }
+            } else if let Some(pos) = line.find("Successfully connected to vehicle ") {
+                // Fallback pattern if explicit "Set vehicle VIN:" is not present
+                let v = line[(pos + "Successfully connected to vehicle ".len())..]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                if !v.is_empty() {
+                    vin = Some(v.to_string());
+                }
+            }
+        }
+
+        if start_time.is_none() {
+            if let Some(pos) = line.find("Starting new logsession:") {
+                let t = line[(pos + "Starting new logsession:".len())..].trim();
+                if !t.is_empty() {
+                    start_time = Some(t.to_string());
+                }
+            }
+        }
+
+        if vin.is_some() && start_time.is_some() {
+            break;
+        }
+    }
+
+    Ok((vin, start_time))
+}
+
 pub fn extract_dtcs_from_log(
     in_path: &str,
     out_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let infile = File::open(in_path)?;
-    let reader = BufReader::new(infile);
+    // Ensure output directory exists
     if let Some(parent) = std::path::Path::new(out_path).parent() { let _ = std::fs::create_dir_all(parent); }
     let mut outfile = File::create(out_path)?;
+
+    // First, extract and write metadata line
+    let (vin_opt, time_opt) = extract_meta_from_log(in_path)?;
+    let meta = MetaRecord { _meta: MetaInner { VIN: vin_opt, time: time_opt } };
+    writeln!(outfile, "{}", serde_json::to_string(&meta)?)?;
+
+    // Re-open input for DTC extraction pass
+    let infile = File::open(in_path)?;
+    let reader = BufReader::new(infile);
 
     // Try to load DTC descriptions from default JSONL, warn if the file is missing.
     let dtc_db_default = Path::new("files/input/dtcs_db.jsonl");
