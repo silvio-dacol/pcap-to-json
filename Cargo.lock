@@ -168,6 +168,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dtc-parser"
+version = "0.1.0"
+dependencies = [
+ "calamine",
+ "chrono",
+ "etherparse",
+ "hex",
+ "pcap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -365,19 +378,6 @@ dependencies = [
  "pkg-config",
  "regex",
  "windows-sys",
-]
-
-[[package]]
-name = "pcap-to-json"
-version = "0.1.0"
-dependencies = [
- "calamine",
- "chrono",
- "etherparse",
- "hex",
- "pcap",
- "serde",
- "serde_json",
 ]
 
 [[package]]
