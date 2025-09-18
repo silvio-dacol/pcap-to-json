@@ -8,14 +8,19 @@ use std::path::Path;
 use crate::dtc_db;
 
 #[derive(Serialize)]
-struct DtcRecord {
-    dtc: String,
+struct DtcInner {
+    hex: String,
     display_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     ecu: String,
     masked: bool,
     status: u32,
+}
+
+#[derive(Serialize)]
+struct DtcRecord {
+    dtc: DtcInner,
 }
 
 #[derive(Serialize)]
@@ -29,6 +34,12 @@ struct MetaInner {
 #[derive(Serialize)]
 struct MetaRecord {
     _meta: MetaInner,
+}
+
+#[derive(Serialize)]
+struct DtcOutput {
+    _meta: MetaInner,
+    dtcs: Vec<DtcRecord>,
 }
 
 // Convert a 6-hex-char raw DTC (e.g., "1ABCD2") to display code (e.g., "C1ABCD").
@@ -130,12 +141,10 @@ pub fn extract_dtcs_from_log(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Ensure output directory exists
     if let Some(parent) = std::path::Path::new(out_path).parent() { let _ = std::fs::create_dir_all(parent); }
-    let mut outfile = File::create(out_path)?;
 
-    // First, extract and write metadata line
+    // First, extract metadata
     let (vin_opt, time_opt) = extract_meta_from_log(in_path)?;
-    let meta = MetaRecord { _meta: MetaInner { VIN: vin_opt, time: time_opt } };
-    writeln!(outfile, "{}", serde_json::to_string(&meta)?)?;
+    let meta_inner = MetaInner { VIN: vin_opt, time: time_opt };
 
     // Re-open input for DTC extraction pass
     let infile = File::open(in_path)?;
@@ -158,6 +167,7 @@ pub fn extract_dtcs_from_log(
 
     let mut in_section = false;
     let mut saw_header = false;
+    let mut records: Vec<DtcRecord> = Vec::new();
 
     for line_res in reader.lines() {
         let mut line = match line_res {
@@ -239,17 +249,26 @@ pub fn extract_dtcs_from_log(
         };
 
         let display_code = dtc_hex_to_display(dtc).unwrap_or_else(|_| dtc.to_string());
+        // Use description directly from DB (already processed when building the DB)
         let description = dtc_map.get(&display_code).cloned();
+
         let rec = DtcRecord {
-            dtc: dtc.to_string(),
-            display_code,
-            description,
-            ecu: ecu.to_string(),
-            masked,
-            status,
+            dtc: DtcInner {
+                hex: dtc.to_string(),
+                display_code,
+                description,
+                ecu: ecu.to_string(),
+                masked,
+                status,
+            },
         };
-        writeln!(outfile, "{}", serde_json::to_string(&rec)?)?;
+        records.push(rec);
     }
 
+    // Write a single JSON object with _meta and dtcs array
+    let out_obj = DtcOutput { _meta: meta_inner, dtcs: records };
+    let mut outfile = File::create(out_path)?;
+    // Pretty for readability; a JSON viewer can format it too
+    write!(outfile, "{}", serde_json::to_string_pretty(&out_obj)?)?;
     Ok(())
 }

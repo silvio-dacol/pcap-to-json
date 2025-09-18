@@ -41,8 +41,8 @@ fn cell_to_string(cell: &Data) -> Option<String> {
 // - Columns A and B are not useful.
 // - Column C contains a single string with the format:
 //   "<DTC>|<description>[|<alt description> ...]".
-// Output: JSONL with { dtc, description } where description is everything
-// after the first '|' (if multiple parts exist, they are preserved joined by '|').
+// Output: JSONL with { dtc, description } where description is only the text
+// immediately after the first '|' (subsequent '|' parts are ignored).
 pub fn extract_dtcs_from_xlsx(
     in_path: &str,
     out_path: &str,
@@ -72,18 +72,21 @@ pub fn extract_dtcs_from_xlsx(
             _ => continue, // no data in this row
         };
 
-        let mut parts = raw.split('|').map(|s| s.trim()).filter(|s| !s.is_empty());
-        let dtc = match parts.next() {
-            Some(code) => code.to_string(),
-            None => continue,
+        // We expect format: <DTC>|<ignored>|<description ... possibly more '|'>
+        let mut parts = raw.splitn(3, '|');
+        let dtc = match parts.next().map(|s| s.trim()) {
+            Some(code) if !code.is_empty() => code.to_string(),
+            _ => continue,
+        };
+        // Skip the second segment (could be empty/ignored)
+        let _ignored = parts.next();
+        // Everything from after the second '|' to the end is the description
+        let description = match parts.next() {
+            Some(rest) if !rest.trim().is_empty() => rest.trim().to_string(),
+            _ => continue,
         };
 
-        // Everything after the first '|' is the description (may include additional '|')
-        let rest: Vec<String> = parts.map(|s| s.to_string()).collect();
-        if rest.is_empty() { continue; }
-        let description_joined = rest.join("|");
-
-        let rec = DtcDbRecord { dtc, description: description_joined };
+        let rec = DtcDbRecord { dtc, description };
         writeln!(out, "{}", serde_json::to_string(&rec)?)?;
     }
 
