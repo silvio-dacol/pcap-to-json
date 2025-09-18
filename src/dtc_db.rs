@@ -1,12 +1,14 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::{
     fs::File,
-    io::Write,
+    io::{Write, BufRead, BufReader},
 };
+use std::collections::HashMap;
+use std::path::Path;
 
 use calamine::{open_workbook_auto, Data, Reader};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct DtcDbRecord {
     dtc: String,
     description: String,
@@ -86,4 +88,24 @@ pub fn extract_dtcs_from_xlsx(
     }
 
     Ok(())
+}
+
+// Load a map of display_code -> description from a JSONL file.
+// If the file is missing, returns an empty map (caller can decide whether to warn).
+pub fn load_dtc_map_from_jsonl<P: AsRef<Path>>(path: P) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let p = path.as_ref();
+    let mut map = HashMap::new();
+    let file = File::open(p)?; // let caller decide how to handle NotFound
+    let reader = BufReader::new(file);
+    for line_res in reader.lines() {
+        let line = match line_res {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        if line.trim().is_empty() { continue; }
+        if let Ok(rec) = serde_json::from_str::<DtcDbRecord>(&line) {
+            map.insert(rec.dtc, rec.description);
+        }
+    }
+    Ok(map)
 }

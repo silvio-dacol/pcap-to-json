@@ -3,11 +3,16 @@ use std::{
     fs::File,
     io::{BufRead, BufReader, Write},
 };
+use std::path::Path;
+
+use crate::dtc_db;
 
 #[derive(Serialize)]
 struct DtcRecord {
     dtc: String,
     display_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
     ecu: String,
     masked: bool,
     status: u32,
@@ -65,6 +70,21 @@ pub fn extract_dtcs_from_log(
     let reader = BufReader::new(infile);
     if let Some(parent) = std::path::Path::new(out_path).parent() { let _ = std::fs::create_dir_all(parent); }
     let mut outfile = File::create(out_path)?;
+
+    // Try to load DTC descriptions from default JSONL, warn if the file is missing.
+    let dtc_db_default = Path::new("files/input/dtcs_db.jsonl");
+    let dtc_map = if dtc_db_default.exists() {
+        match dtc_db::load_dtc_map_from_jsonl(dtc_db_default) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("Warning: failed to load dtcs_db.jsonl: {}. Descriptions will be omitted.", e);
+                std::collections::HashMap::new()
+            }
+        }
+    } else {
+        eprintln!("Info: files/input/dtcs_db.jsonl not found. Continuing without descriptions.");
+        std::collections::HashMap::new()
+    };
 
     let mut in_section = false;
     let mut saw_header = false;
@@ -148,9 +168,12 @@ pub fn extract_dtcs_from_log(
             Err(_) => continue,
         };
 
+        let display_code = dtc_hex_to_display(dtc).unwrap_or_else(|_| dtc.to_string());
+        let description = dtc_map.get(&display_code).cloned();
         let rec = DtcRecord {
             dtc: dtc.to_string(),
-            display_code: dtc_hex_to_display(dtc).unwrap_or_else(|_| dtc.to_string()),
+            display_code,
+            description,
             ecu: ecu.to_string(),
             masked,
             status,

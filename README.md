@@ -42,8 +42,12 @@ Extract DTCs from a log file into JSONL:
 cargo run -- --extract-dtcs sample.log dtcs.jsonl
 ```
 
+If a DTC database JSONL exists at `files/input/dtcs_db.jsonl`, each output record is enriched with a `description` field by matching the record `display_code` to the DB `dtc`. If the DB is missing, extraction proceeds without descriptions and prints an informational message.
+
 Extract DTC definitions from an Excel `.xlsx` file into JSONL:
 
 ```
 cargo run -- --extract-dtcs-xlsx dtc_catalog.xlsx dtc_db.jsonl
 ```
+
+Note: The DB JSONL is typically written under `files/input/dtcs_db.jsonl` when using the above command.
